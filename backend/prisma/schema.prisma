@@ -1,0 +1,86 @@
+// This is your Prisma schema file
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Establecimiento {
+  id        Int        @id @default(autoincrement())
+  lat       Float
+  lng       Float
+  nombre    String
+  tipo      String     // hospital, clinic, doctors, etc.
+  direccion String?
+  telefono  String?
+  horarios  String?    @db.Text
+  metadata  Json?      // datos adicionales de OSM/Leaflet
+  turnos    Turno[]
+  resenias  Resenia[]  @relation("ReseniasPorEstablecimiento")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  
+  @@unique([lat, lng]) // Identificador único basado en coordenadas
+  @@index([lat, lng])
+}
+
+model Usuario {
+  id          Int        @id @default(autoincrement())
+  nombre      String
+  apellido    String
+  mail        String      @unique
+  contrasenia String
+  turnos      Turno[]
+  resenias    Resenia[]   @relation("ReseniasPorUsuario")
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Turno {
+  id                Int             @id @default(autoincrement())
+  usuarioId         Int
+  establecimientoId Int
+  fecha             DateTime
+  hora              String?
+  estado            String          @default("pendiente")
+  usuario           Usuario         @relation(fields: [usuarioId], references: [id])
+  establecimiento   Establecimiento @relation(fields: [establecimientoId], references: [id])
+  resenia           Resenia?
+
+  @@index([usuarioId])
+  @@index([establecimientoId])
+}
+
+model Resenia {
+  id                Int             @id @default(autoincrement())
+  usuarioId         Int
+  establecimientoId Int
+  turnoId           Int             @unique // Solo una reseña por turno
+  puntuacion        Int             // 1-5 estrellas
+  comentario        String          @db.Text
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  // Relaciones corregidas y nombradas
+  usuario           Usuario         @relation("ReseniasPorUsuario", fields: [usuarioId], references: [id])
+  establecimiento   Establecimiento  @relation("ReseniasPorEstablecimiento", fields: [establecimientoId], references: [id])
+  turno             Turno           @relation(fields: [turnoId], references: [id])
+
+  @@index([establecimientoId])
+  @@index([usuarioId])
+}
+
+// Tabla legacy de ubicaciones (mantener por compatibilidad)
+model Ubicacion {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  direccion String
+  lat       Float
+  lng       Float
+  createdAt DateTime @default(now())
+}
